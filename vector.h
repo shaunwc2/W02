@@ -24,6 +24,7 @@
 #include <cassert>  // because I am paranoid
 #include <new>      // std::bad_alloc
 #include <memory>   // for std::allocator
+#include <memory>
 
 
 namespace custom
@@ -48,6 +49,12 @@ public:
    vector(const vector &  rhs);
    vector(      vector && rhs);
    ~vector();
+
+   //
+   // Allocator
+   //
+
+   std::allocator<int> alloc;
 
    //
    // Assign
@@ -107,6 +114,9 @@ public:
 
    void clear()
    {
+       for(int t=0;  data[t]; t++)
+           alloc.destroy(data + t);
+       numElements = 0;
    }
    void pop_back()
    {
@@ -222,7 +232,8 @@ vector :: ~vector()
  **************************************/
 void vector :: resize(size_t newElements)
 {
-   numElements = 21;
+   reserve(newElements);
+   numElements = newElements;
 }
 
 void vector :: resize(size_t newElements, const int & t)
@@ -240,7 +251,18 @@ void vector :: resize(size_t newElements, const int & t)
  **************************************/
 void vector :: reserve(size_t newCapacity)
 {
-   
+    if (newCapacity <= numCapacity)
+        return;
+
+    int * newData = alloc.allocate(newCapacity);
+    for (int i = 0; i < numElements; i++)
+        new ((void*)(newData + i)) int(std::move(data[i]));
+        
+    for (int i = 0; i < numElements; i++)
+        alloc.destroy(data + i);
+        alloc.deallocate(data, numCapacity);
+        data = newData;
+    numCapacity = newCapacity;
 }
 
 /***************************************
@@ -251,7 +273,17 @@ void vector :: reserve(size_t newCapacity)
  **************************************/
 void vector :: shrink_to_fit()
 {
-   
+    if (numElements = numCapacity)
+        return;
+
+    int * dataNew;
+    dataNew = new int(numElements); 
+    for (int i = 0; i < numElements; i++)
+        dataNew[i] = data[i];
+
+    delete(data);
+    data = dataNew;
+    numCapacity = numElements;
 }
 
 
@@ -370,8 +402,8 @@ class vector :: iterator
 public:
    // constructors, destructors, and assignment operator
    iterator()       {}
-   iterator(int * p)       {}
-   iterator(const iterator & rhs) {  }
+   iterator(int* p) { this->p = p; }
+   iterator(const iterator& rhs) { }
    iterator & operator = (const iterator & rhs)
    {
       return *this;
@@ -430,7 +462,7 @@ private:
  **************************************/
 vector::iterator vector :: begin()
 {
-   return iterator();
+   return iterator(data);
 }
 
 /***************************************
@@ -442,7 +474,7 @@ vector::iterator vector :: begin()
  **************************************/
 vector::iterator vector :: end()
 {
-   return iterator();
+   return iterator(data + numElements -1);
 }
 
 
